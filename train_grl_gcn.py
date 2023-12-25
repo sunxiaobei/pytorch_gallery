@@ -6,9 +6,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+import random
 
 from grl.gcn.utils import load_data, accuracy
 from grl.gcn.models import GCN
+
 
 # Training settings
 parser = argparse.ArgumentParser()
@@ -30,13 +32,14 @@ parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate (1 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-np.random.seed(args.seed)
+np.random.seed(args.seed)  # 设置np.random
 torch.manual_seed(args.seed)
 if args.cuda:
-    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)  # 设置cuda.random
 
 # Load data
 adj, features, labels, idx_train, idx_val, idx_test = load_data(args.path, args.dataset)
+
 
 # Model and optimizer
 model = GCN(nfeat=features.shape[1],

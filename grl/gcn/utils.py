@@ -2,13 +2,28 @@ import numpy as np
 import scipy.sparse as sp
 import torch
 import sys
-from grl.gcn.normalization import row_normalize
 # 设置最大递归次数
 sys.setrecursionlimit(99999)
 """
 工具类
 """
 
+
+# 行归一化  特征归一化 n*d  和  邻接矩阵归一化 按行 n*n
+# 归一化  特征矩阵  输入特征矩阵  preprocess_features  Lil格式稀疏矩阵
+# 处理特征:特征矩阵进行归一化并返回一个格式为(coords, values, shape)的元组
+# 特征矩阵的每一行的每个元素除以行和，处理后的每一行元素之和为1
+# 处理特征矩阵，跟谱图卷积的理论有关，目的是要把周围节点的特征和自身节点的特征都捕捉到，同时避免不同节点间度的不均衡带来的问题
+def row_normalize(mx):
+    """Row-normalize sparse matrix"""
+    # a.sum()是将矩阵中所有的元素进行求和;a.sum(axis = 0)是每一列列相加;a.sum(axis = 1)是每一行相加
+    rowsum = np.array(mx.sum(1))  # 稀疏矩阵mx 转换成np 特征按行求和，得到一个列向量，2708*1
+    rowsum = (rowsum == 0) * 1 + rowsum  # 如果和为0，则转换成1 ，rowsum是除数，不能为0
+    r_inv = np.power(rowsum, -1).flatten()  # 计算rowsum^{-1} 并展平，即转换成一维 2708
+    r_inv[np.isinf(r_inv)] = 0.  # INF补零
+    r_mat_inv = sp.diags(r_inv)  # 特征和 转换成对角矩阵（稀疏）2708 * 2708
+    mx = r_mat_inv.dot(mx)  # 归一化后的特征 = 特征和的倒数（对角阵 d*d维）* 特征矩阵（n*d）
+    return mx
 
 # 计算acc （输出结果，标签）
 def accuracy(output, labels):
@@ -41,7 +56,8 @@ def std(x, ddof=1):
 
 # One-hot编码  节点标签
 def encode_onehot(labels):
-    classes = set(labels)  # 所有标签集合
+    # classes = set(labels)  # 所有标签集合
+    classes = sorted(list(set(labels)))  # 排序后，固定标签
     classes_dict = {c: np.identity(len(classes))[i, :] for i, c in enumerate(classes)}  # 遍历所有标签去重之后
     labels_onehot = np.array(list(map(classes_dict.get, labels)), dtype=np.int32)  # 转换成One-hot
     return labels_onehot
